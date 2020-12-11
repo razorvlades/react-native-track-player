@@ -416,6 +416,19 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
     }
 
     @ReactMethod
+    public void getCurrentTrackIndex(final Promise callback) {
+        waitForConnection(() -> {
+            int index = binder.getPlayback().getCurrentTrackIndex();
+
+            if(index == -1) {
+                callback.resolve(-1);
+            } else {
+                callback.resolve(index);
+            }
+        });
+    }
+
+    @ReactMethod
     public void getDuration(final Promise callback) {
         waitForConnection(() -> {
             long duration = binder.getPlayback().getDuration();

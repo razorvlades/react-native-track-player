@@ -80,6 +80,11 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
         return index < 0 || index >= queue.size() ? null : queue.get(index);
     }
 
+    public int getCurrentTrackIndex() {
+        int index = player.getCurrentWindowIndex();
+        return index < 0 || index >= queue.size() ? -1 : index;
+    }
+
     public void skip(String id, Promise promise) {
         if(id == null || id.isEmpty()) {
             promise.reject("invalid_id", "The ID can't be null or empty");

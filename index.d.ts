@@ -145,6 +145,7 @@ declare namespace RNTrackPlayer {
   export function getQueue(): Promise<Track[]>;
   export function getTrack(id: string): Promise<Track>;
   export function getCurrentTrack(): Promise<string>;
+  export function getCurrentTrackIndex(): Promise<number>;
   export function getVolume(): Promise<number>;
   export function getDuration(): Promise<number>;
   export function getPosition(): Promise<number>;
