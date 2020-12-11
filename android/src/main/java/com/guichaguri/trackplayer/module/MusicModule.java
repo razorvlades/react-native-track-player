@@ -12,6 +12,7 @@ import android.util.Log;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.facebook.react.bridge.*;
 import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.Player;
 import com.guichaguri.trackplayer.service.MusicBinder;
 import com.guichaguri.trackplayer.service.MusicService;
 import com.guichaguri.trackplayer.service.Utils;
@@ -148,6 +149,11 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
         constants.put("RATING_5_STARS", RatingCompat.RATING_5_STARS);
         constants.put("RATING_PERCENTAGE", RatingCompat.RATING_PERCENTAGE);
 
+        // Repeat Modes
+        constants.put("REPEAT_OFF", Player.REPEAT_MODE_OFF);
+        constants.put("REPEAT_TRACK", Player.REPEAT_MODE_ONE);
+        constants.put("REPEAT_QUEUE", Player.REPEAT_MODE_ALL);
+
         return constants;
     }
 
@@ -229,6 +235,35 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
     }
 
     @ReactMethod
+    public void addByIndex(ReadableArray tracks, final Integer insertBeforeIndex, final Promise callback) {
+        final ArrayList bundleList = Arguments.toList(tracks);
+
+        waitForConnection(() -> {
+            List<Track> trackList;
+
+            try {
+                trackList = Track.createTracks(getReactApplicationContext(), bundleList, binder.getRatingType());
+            } catch(Exception ex) {
+                callback.reject("invalid_track_object", ex);
+                return;
+            }
+
+            List<Track> queue = binder.getPlayback().getQueue();
+            int index = insertBeforeIndex != null ? insertBeforeIndex : queue.size();
+
+            if(index < 0 || index > queue.size()) {
+                callback.reject("index_out_of_bounds", "The track index is out of bounds");
+            } else if(trackList == null || trackList.isEmpty()) {
+                callback.reject("invalid_track_object", "Track is missing a required key");
+            } else if(trackList.size() == 1) {
+                binder.getPlayback().add(trackList.get(0), index, callback);
+            } else {
+                binder.getPlayback().add(trackList, index, callback);
+            }
+        });
+    }
+
+    @ReactMethod
     public void remove(ReadableArray tracks, final Promise callback) {
         final ArrayList trackList = Arguments.toList(tracks);
 
@@ -251,6 +286,49 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
                 binder.getPlayback().remove(indexes, callback);
             } else {
                 callback.resolve(null);
+            }
+        });
+    }
+
+    @ReactMethod
+    public void removeByIndex(ReadableArray tracks, final Promise callback) {
+        final ArrayList trackList = Arguments.toList(tracks);
+
+        waitForConnection(() -> {
+            List<Track> queue = binder.getPlayback().getQueue();
+            List<Integer> indexes = new ArrayList<>();
+
+            for(Object o : trackList) {
+                int index = o instanceof Integer ? (int)o : Integer.parseInt(o.toString());
+
+                if (index >= 0 && index < queue.size()) {
+                    indexes.add(index);
+                }
+            }
+
+            if (!indexes.isEmpty()) {
+                binder.getPlayback().remove(indexes, callback);
+            } else {
+                callback.resolve(null);
+            }
+        });
+    }
+
+    @ReactMethod
+    public void move(int index, int newIndex, final Promise callback) {
+        waitForConnection(() -> {
+            ExoPlayback playback = binder.getPlayback();
+            int size = playback.getQueue().size();
+            Integer currentIndex = playback.getCurrentTrackIndex();
+
+            if (index < 0 || index >= size) {
+                callback.reject("index_out_of_bounds", "The track index is out of bounds");
+            } else if (newIndex < 0 || newIndex >= size) {
+                callback.reject("index_out_of_bounds", "The new index is out of bounds");
+            } else if (index == currentIndex || newIndex == currentIndex) {
+                callback.reject("not_movable", "The current track cannot be moved");
+            } else {
+                playback.move(index, newIndex, callback);
             }
         });
     }
@@ -282,6 +360,50 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
         });
     }
 
+    // @ReactMethod
+    // public void updateMetadataForTrackByIndex(int index, ReadableMap map, final Promise callback) {
+    //     waitForConnection(() -> {
+    //         ExoPlayback playback = binder.getPlayback();
+    //         List<Track> queue = playback.getQueue();
+
+    //         if(index < 0 || index >= queue.size()) {
+    //             callback.reject("index_out_of_bounds", "The index is out of bounds");
+    //         } else {
+    //             Track track = queue.get(index);
+    //             track.setMetadata(getReactApplicationContext(), Arguments.toBundle(map), binder.getRatingType());
+    //             playback.updateTrack(index, track);
+    //             callback.resolve(null);
+    //         }
+    //     });
+    // }
+
+    // @ReactMethod
+    // public void updateNowPlayingMetadata(ReadableMap map, final Promise callback) {
+    //     final Bundle data = Arguments.toBundle(map);
+
+    //     waitForConnection(() -> {
+    //         NowPlayingMetadata metadata = new NowPlayingMetadata(getReactApplicationContext(), data, binder.getRatingType());
+    //         binder.updateNowPlayingMetadata(metadata);
+    //         callback.resolve(null);
+    //     });
+    // }
+
+    // @ReactMethod
+    // public void clearNowPlayingMetadata(final Promise callback) {
+    //     waitForConnection(() -> {
+    //         binder.clearNowPlayingMetadata();
+    //         callback.resolve(null);
+    //     });
+    // }
+
+    @ReactMethod
+    public void shuffle(final Promise callback) {
+        waitForConnection(() -> {
+            binder.getPlayback().shuffle(callback);
+            callback.resolve(null);
+        });
+    }
+
     @ReactMethod
     public void removeUpcomingTracks(final Promise callback) {
         waitForConnection(() -> {
@@ -293,6 +415,11 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
     @ReactMethod
     public void skip(final String track, final Promise callback) {
         waitForConnection(() -> binder.getPlayback().skip(track, callback));
+    }
+
+    @ReactMethod
+    public void skipToIndex(final int index, final Promise callback) {
+        waitForConnection(() -> binder.getPlayback().skipToIndex(index, callback));
     }
 
     @ReactMethod
@@ -373,6 +500,19 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
     }
 
     @ReactMethod
+    public void setRepeatMode(int mode, final Promise callback) {
+        waitForConnection(() -> {
+            binder.getPlayback().setRepeatMode(mode);
+            callback.resolve(null);
+        });
+    }
+
+    @ReactMethod
+    public void getRepeatMode(int mode, final Promise callback) {
+        waitForConnection(() -> callback.resolve(binder.getPlayback().getRepeatMode()));
+    }
+
+    @ReactMethod
     public void getTrack(final String id, final Promise callback) {
         waitForConnection(() -> {
             List<Track> tracks = binder.getPlayback().getQueue();
@@ -385,6 +525,19 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
             }
 
             callback.resolve(null);
+        });
+    }
+
+    @ReactMethod
+    public void getTrackByIndex(final int index, final Promise callback) {
+        waitForConnection(() -> {
+            List<Track> tracks = binder.getPlayback().getQueue();
+
+            if (index >= 0 && index < tracks.size()) {
+                callback.resolve(Arguments.fromBundle(tracks.get(index).originalItem));
+            } else {
+                callback.resolve(null);
+            }
         });
     }
 
