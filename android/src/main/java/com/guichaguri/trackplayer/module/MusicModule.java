@@ -573,8 +573,8 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
         waitForConnection(() -> {
             int index = binder.getPlayback().getCurrentTrackIndex();
 
-            if(index == null) {
-                callback.resolve(null);
+            if(index == -1) {
+                callback.resolve(-1);
             } else {
                 callback.resolve(index);
             }

@@ -95,7 +95,7 @@ public class ButtonEvents extends MediaSessionCompat.Callback {
 
             Bundle bundle = new Bundle();
             bundle.putInt("index", i);
-            bundle.putString("id", track.id);
+            bundle.putString("id", tracks.get(i).id);
             service.emit(MusicEvents.BUTTON_SKIP, bundle);
             break;
         }

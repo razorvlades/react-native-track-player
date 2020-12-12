@@ -90,7 +90,7 @@ public abstract class ExoPlayback<T extends Player> implements EventListener, Me
 
     public Integer getCurrentTrackIndex() {
         int index = player.getCurrentWindowIndex();
-        return index < 0 || index >= queue.size() ? null : index;
+        return index < 0 || index >= queue.size() ? -1 : index;
     }
 
     public void skip(String id, Promise promise) {
